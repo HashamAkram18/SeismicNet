@@ -16,19 +16,19 @@ from torch import Tensor
 class DetectionHead(nn.Module):
     """Binary seismic event detection head.
 
-    Input: pooled_features [B, 256]
+    Input: pooled_features [B, d_model]
     Output: logits [B, 1] (sigmoid applied in loss, not here)
 
-    Architecture: Linear(256, 64) → ReLU → Dropout(0.1) → Linear(64, 1)
+    Architecture: Linear(d_model, 64) → ReLU → Dropout(0.1) → Linear(64, 1)
 
     At inference, apply torch.sigmoid() to logits.
     Classification threshold loaded from model_config.json:detection_threshold.
     """
 
-    def __init__(self, hidden_dim: int = 64, dropout: float = 0.1) -> None:
+    def __init__(self, input_dim: int = 256, hidden_dim: int = 64, dropout: float = 0.1) -> None:
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(256, hidden_dim),
+            nn.Linear(input_dim, hidden_dim),
             nn.ReLU(inplace=True),
             nn.Dropout(dropout),
             nn.Linear(hidden_dim, 1),
@@ -104,20 +104,20 @@ class PhasePickHead(nn.Module):
 class MagnitudeHead(nn.Module):
     """Magnitude estimation head.
 
-    Input: concat([pooled_features [B, 256], pgv [B, 1]]) → [B, 257]
+    Input: concat([pooled_features [B, d_model], pgv [B, 1]]) → [B, d_model+1]
     Output: magnitude_pred [B, 1] (log10(Ml+1) scale)
 
-    Architecture: Linear(257, 64) → ReLU → Dropout(0.1) → Linear(64, 1)
+    Architecture: Linear(d_model+1, 64) → ReLU → Dropout(0.1) → Linear(64, 1)
 
     PGV concatenation is mandatory. Without it the head must infer magnitude
     purely from waveform shape (which is z-score normalized and has no amplitude
     information). The PGV carries the only amplitude signal that survives normalization.
     """
 
-    def __init__(self, hidden_dim: int = 64, dropout: float = 0.1) -> None:
+    def __init__(self, input_dim: int = 256, hidden_dim: int = 64, dropout: float = 0.1) -> None:
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(256 + 1, hidden_dim),  # 256 pooled + 1 pgv = 257
+            nn.Linear(input_dim + 1, hidden_dim),  # d_model pooled + 1 pgv
             nn.ReLU(inplace=True),
             nn.Dropout(dropout),
             nn.Linear(hidden_dim, 1),
@@ -140,20 +140,20 @@ class MagnitudeHead(nn.Module):
 class RiskHead(nn.Module):
     """Structural damage risk classification head.
 
-    Input: pooled_features [B, 256]
+    Input: pooled_features [B, d_model]
     Output: logits [B, 4] (softmax applied in loss, not here)
     Classes: {0: low, 1: moderate, 2: high, 3: critical}
 
-    Architecture: Linear(256, 64) → ReLU → Dropout(0.1) → Linear(64, 4)
+    Architecture: Linear(d_model, 64) → ReLU → Dropout(0.1) → Linear(64, 4)
 
     At inference, apply torch.softmax() to get class probabilities.
     Return both the argmax class and the full probability vector.
     """
 
-    def __init__(self, hidden_dim: int = 64, dropout: float = 0.1, num_classes: int = 4) -> None:
+    def __init__(self, input_dim: int = 256, hidden_dim: int = 64, dropout: float = 0.1, num_classes: int = 4) -> None:
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(256, hidden_dim),
+            nn.Linear(input_dim, hidden_dim),
             nn.ReLU(inplace=True),
             nn.Dropout(dropout),
             nn.Linear(hidden_dim, num_classes),

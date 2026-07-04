@@ -140,7 +140,7 @@ class SeismicMetrics:
             fps = (1 - sorted_labels).cumsum(dim=0).float()
             tpr = tps / max(tp + fn, 1)
             fpr = fps / max(fp + tn, 1)
-           roc_auc = torch.trapezoid(tpr, fpr).item() if len(tpr) > 1 else 0.5
+            roc_auc = torch.trapezoid(tpr, fpr).item() if len(tpr) > 1 else 0.5
 
             results["detection_precision"] = precision
             results["detection_recall"] = recall

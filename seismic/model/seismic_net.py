@@ -41,14 +41,16 @@ class SeismicNet(nn.Module):
         self.encoder = SeismicEncoder(model_config)
         hidden_dim = model_config["head_hidden_dim"]
         dropout = model_config["head_dropout"]
+        d_model = model_config["transformer_d_model"]
 
-        self.detection_head = DetectionHead(hidden_dim=hidden_dim, dropout=dropout)
+        self.detection_head = DetectionHead(input_dim=d_model, hidden_dim=hidden_dim, dropout=dropout)
         self.phase_pick_head = PhasePickHead(
-            d_model=model_config["transformer_d_model"],
+            d_model=d_model,
             hidden_dim=hidden_dim,
         )
-        self.magnitude_head = MagnitudeHead(hidden_dim=hidden_dim, dropout=dropout)
+        self.magnitude_head = MagnitudeHead(input_dim=d_model, hidden_dim=hidden_dim, dropout=dropout)
         self.risk_head = RiskHead(
+            input_dim=d_model,
             hidden_dim=hidden_dim,
             dropout=dropout,
             num_classes=len(model_config["risk_classes"]),
