@@ -1,9 +1,18 @@
 """SeismicNet: assembles encoder and task heads.
 
-Fixed forward signature:
-    forward(waveform: Tensor[B,3,3000], pgv: Tensor[B,1], active_tasks: list[str]) -> dict
+Fixed forward signature (Invariant 3 — must not change):
+    forward(waveform: Tensor[B,3,3000], pgv: Tensor[B,1],
+            active_tasks: list[str]) -> dict
 
 Defined in docs/03_model_architecture.md § seismic_net.py.
+
+Routing rules (non-negotiable):
+- encoder() returns (sequence_features, pooled_features) tuple
+- PhasePickHead receives sequence_features [B, 256, 375]
+- DetectionHead, RiskHead receive pooled_features [B, 256]
+- MagnitudeHead receives pooled_features [B, 256] AND pgv [B, 1]
+- Only compute heads listed in active_tasks — skip others entirely
+- Return dict with only active task keys populated
 """
 from __future__ import annotations
 
@@ -62,5 +71,28 @@ class SeismicNet(nn.Module):
             Dict with keys "detection", "phase_pick", "magnitude", "risk".
             Only keys for active_tasks are populated.
         """
-        # TODO: implement
-        raise NotImplementedError
+        if active_tasks is None:
+            active_tasks = ["detection", "phase_pick", "magnitude", "risk"]
+
+        # Encoder produces both sequence and pooled features
+        sequence_features, pooled_features = self.encoder(waveform)
+
+        outputs: dict[str, Tensor] = {}
+
+        # DetectionHead ← pooled_features
+        if "detection" in active_tasks:
+            outputs["detection"] = self.detection_head(pooled_features)
+
+        # PhasePickHead ← sequence_features (NOT pooled_features)
+        if "phase_pick" in active_tasks:
+            outputs["phase_pick"] = self.phase_pick_head(sequence_features)
+
+        # MagnitudeHead ← pooled_features + pgv
+        if "magnitude" in active_tasks:
+            outputs["magnitude"] = self.magnitude_head(pooled_features, pgv)
+
+        # RiskHead ← pooled_features
+        if "risk" in active_tasks:
+            outputs["risk"] = self.risk_head(pooled_features)
+
+        return outputs

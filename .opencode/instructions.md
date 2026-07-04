@@ -2,32 +2,37 @@
 
 ## Current Phase
 
-**Step 4 of 19 — augmentation.py + encoder.py implemented**
+**Step 5 of 19 — heads.py + seismic_net.py implemented**
 
 ## What Was Completed This Session
 
-1. Implemented `seismic/augmentation.py` — all 4 augmentation types:
-   - `time_shift()` — random circular shift ±50 samples, zero-pad vacated ends
-   - `amplitude_scale()` — random Uniform(0.5, 2.0) scaling
-   - `additive_noise()` — Gaussian noise at Uniform(0.5-2%) of per-channel std
-   - `channel_dropout()` — zero one random channel (E/N/Z)
-   - `augment_waveform()` — pipeline orchestrator with per-augmentation probability
-2. Implemented `seismic/model/encoder.py` — full ResNet + Transformer encoder:
-   - `ResBlock` — 1D residual block with optional stride and skip projection
-   - `SeismicEncoder` — Stem → 4 stages → Transformer → pool
-   - Shape verified: input [B,3,3000] → output ([B,256,375], [B,256])
-   - Learned positional encoding (nn.Embedding, not sinusoidal)
-   - Transformer: 2 layers, 8 heads, 512 FFN, gelu activation
-   - Stage 4 stride=1 to preserve temporal resolution for phase picking
-3. Updated `tests/test_model_shapes.py` — 3 encoder tests passing, head/net stubs remain
+1. Implemented `seismic/model/heads.py` — all 4 task heads:
+   - `DetectionHead`: Linear(256→64)→ReLU→Dropout→Linear(64→1), no sigmoid
+   - `PhasePickHead`: attention pointer mechanism, separate P/S pointers, softmax over 375 positions × position_index, outputs [B,2] in [0,1]
+   - `MagnitudeHead`: concat(pooled_features, pgv)→[B,257]→Linear→ReLU→Dropout→Linear(64→1)
+   - `RiskHead`: Linear(256→64)→ReLU→Dropout→Linear(64→4), no softmax
+2. Implemented `seismic/model/seismic_net.py` — assembler with fixed forward signature:
+   - Encoder returns (sequence_features, pooled_features)
+   - PhasePickHead ← sequence_features (verified by test)
+   - Detection/Magnitude/Risk heads ← pooled_features
+   - MagnitudeHead additionally receives pgv (verified by test)
+   - active_tasks filter: only computes requested heads
+3. Updated `tests/test_model_shapes.py` — 16 tests, all passing:
+   - Encoder shape: 3 tests
+   - Head shapes: 4 tests
+   - SeismicNet forward: 9 tests including:
+     - test_phase_pick_reads_sequence_features (stub encoder routing test)
+     - test_pgv_routing (pgv only affects MagnitudeHead output)
+     - test_active_tasks_filter (only requested keys)
+     - test_no_nan_in_output (no NaN in any tensor)
 
 ## Graphify State
 
-- Last rebuild: 2026-07-04 (538 nodes, 686 edges, 36 communities)
+- Last rebuild: 2026-07-04 (534 nodes, 735 edges, 37 communities)
 
 ## Next Action
 
-Begin Step 5: Implement `seismic/model/heads.py` — all 4 task heads.
+Begin Step 6: Implement `seismic/loss.py` — per-task losses + noise masking + weighted combiner.
 
 ## Open Issues
 
@@ -37,4 +42,4 @@ Begin Step 5: Implement `seismic/model/heads.py` — all 4 task heads.
 
 - `tests/test_preprocessing.py`: 24/24 passing
 - `tests/test_dataset.py`: 15/15 passing, 3 skipped (HDF5)
-- `tests/test_model_shapes.py`: 3/14 passing (encoder), 11 stubs (heads/net)
+- `tests/test_model_shapes.py`: 16/16 passing ✅
