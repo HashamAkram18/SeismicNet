@@ -16,7 +16,7 @@ Routing rules (non-negotiable):
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 import torch
 import torch.nn as nn
@@ -60,8 +60,8 @@ class SeismicNet(nn.Module):
         self,
         waveform: Tensor,
         pgv: Tensor,
-        active_tasks: list[str] | None = None,
-    ) -> dict[str, Tensor]:
+        active_tasks: Optional[List[str]] = None,
+    ) -> Dict[str, Tensor]:
         """Forward pass.
 
         Args:
