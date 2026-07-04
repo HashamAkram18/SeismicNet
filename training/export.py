@@ -201,6 +201,8 @@ def main() -> None:
         print(f"Error: checkpoint not found: {args.checkpoint}", file=sys.stderr)
         sys.exit(1)
 
+    logger.info("Export start: checkpoint=%s, output_dir=%s", args.checkpoint, args.output_dir)
+
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     # Step 1: Load and validate
@@ -232,6 +234,7 @@ def main() -> None:
 
     # Step 4: Selective quantization
     model.load_state_dict(clean_state)
+    logger.info("Applying selective quantization (Conv1d + Linear → qint8, Transformer stays float32)")
     quantized_model = quantize_model(model)
     quantized_model.eval()
 
@@ -293,6 +296,7 @@ def main() -> None:
     # Step 8: Smoke test
     smoke_test(scripted_model)
 
+    logger.info("Export complete: %s", args.output_dir)
     print(f"\nExport complete to {args.output_dir}")
     print(f"Files: {', '.join(f.name for f in args.output_dir.iterdir())}")
     print("Smoke test: PASSED")

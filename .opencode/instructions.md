@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-**Step 8 of 19 — Django REST API Layer Complete**
+**Step 8 of 19 — Django REST API Layer + Auth + Swagger + Dashboard Complete**
 
 ## What Was Completed This Session
 
@@ -40,10 +40,25 @@
    - run_seismic_analysis Celery task: processes job asynchronously
    - CELERY_TASK_ALWAYS_EAGER=True in local settings (no Redis needed)
 
-6. Wrote tests:
-   - test_inference.py: 7 tests (engine load, predict keys, detection range, phase picks, magnitude back-transform, risk probs, singleton)
-   - test_views.py: 11 tests (health 200/503, analyze accept/reject/missing, job status pending/complete/not-found, result not-complete/complete)
-   - All 20 API tests passing
+6. Implemented auth endpoints (`seismic_api/auth_views.py`, `auth_urls.py`):
+   - RegisterView (POST /api/v1/auth/register/) — creates user + JWT tokens
+   - LoginView (POST /api/v1/auth/login/) — validates credentials + JWT tokens
+   - ForgotPasswordView (POST /api/v1/auth/forgot-password/) — always returns success
+   - ResetPasswordView (POST /api/v1/auth/reset-password/) — token-based reset
+   - RequestOTPView (POST /api/v1/auth/request-otp/) — sends OTP code
+   - VerifyOTPView (POST /api/v1/auth/verify-otp/) — validates OTP code
+   - ProfileView (GET /api/v1/auth/profile/) — returns user data (JWT required)
+
+7. Added Swagger/ReDoc/JSON schema documentation:
+   - /swagger/ — Swagger UI
+   - /redoc/ — ReDoc UI
+   - /swagger.json — raw JSON schema
+   - Bearer token auth configured for all endpoints
+
+8. Added waveform visualization dashboard:
+   - `api/templates/dashboard.html` — Chart.js dark-theme frontend
+   - `seismic_api/dashboard_view.py` — Django view at / root
+   - 3-component waveform display with event metadata
 
 ## Graphify State
 
@@ -51,12 +66,12 @@
 
 ## Next Action
 
-Run the API locally: `cd api && python manage.py runserver`
-Or deploy to production: `cd api && docker-compose up`
+Steps 9-19 of the 19-step implementation order. GPU training is running — wait for results.
+Dashboard is wired at `/`, auth is live, Swagger at `/swagger/`.
 
 ## Open Issues
 
-- No open issues
+- None
 
 ## Test Status
 
@@ -66,4 +81,5 @@ Or deploy to production: `cd api && docker-compose up`
 - `tests/test_training.py`: 6/6 passing
 - `api/tests/test_inference.py`: 9/9 passing
 - `api/tests/test_views.py`: 11/11 passing
-- Total: 81/81 passing, 3 skipped
+- `api/tests/test_auth.py`: 13/13 passing
+- Total: 94/94 passing, 3 skipped

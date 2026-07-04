@@ -23,6 +23,8 @@ def run_seismic_analysis(self: Any, job_id: str) -> None:
     """
     from seismic_api.models import SeismicJob
 
+    logger.info("Task start: job_id=%s", job_id)
+
     job = SeismicJob.objects.get(job_id=job_id)
     job.status = "processing"
     job.save(update_fields=["status"])
@@ -81,10 +83,10 @@ def run_seismic_analysis(self: Any, job_id: str) -> None:
             "status", "completed_at", "processing_time_ms", "result",
         ])
 
-        logger.info("Job %s completed in %dms", job_id, processing_time_ms)
+        logger.info("Task complete: job_id=%s, processing_time=%dms", job_id, processing_time_ms)
 
     except Exception as e:
-        logger.error("Job %s failed: %s", job_id, e, exc_info=True)
+        logger.error("Task failure: job_id=%s, error=%s", job_id, e, exc_info=True)
         job.status = "failed"
         job.error_detail = str(e)[:1024]
         job.completed_at = datetime.now(timezone.utc)

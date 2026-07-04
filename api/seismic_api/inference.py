@@ -44,6 +44,7 @@ class SeismicInferenceEngine:
             FileNotFoundError: If required artifact files are missing.
             ValueError: If preprocessing_config schema_version mismatch.
         """
+        logger.info("Initializing inference engine from artifact_dir=%s", artifact_dir)
         artifact_path = Path(artifact_dir)
         if not artifact_path.exists():
             raise FileNotFoundError(f"Artifact directory not found: {artifact_dir}")
@@ -167,6 +168,7 @@ class SeismicInferenceEngine:
         pgv_tensor = torch.tensor([[processed["pgv"]]], dtype=torch.float32)  # [1, 1]
 
         # Forward pass
+        logger.info("Predict call: waveform=%s, sampling_rate=%d", waveform_np.shape, sampling_rate)
         t0 = time.perf_counter()
         with torch.no_grad():
             outputs = self._model(
@@ -174,6 +176,7 @@ class SeismicInferenceEngine:
                 active_tasks=["detection", "phase_pick", "magnitude", "risk"],
             )
         inference_ms = int((time.perf_counter() - t0) * 1000)
+        logger.info("Predict complete in %dms", inference_ms)
 
         # Post-process detection
         det_logit = outputs["detection"].squeeze().item()

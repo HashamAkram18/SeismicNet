@@ -8,11 +8,14 @@ Defined in docs/03_model_architecture.md § loss.py.
 """
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import torch
 import torch.nn as nn
 from torch import Tensor
+
+logger = logging.getLogger(__name__)
 
 
 class SeismicLoss(nn.Module):
@@ -58,6 +61,13 @@ class SeismicLoss(nn.Module):
         # Task D: Risk — CrossEntropyLoss
         self.ce_loss = nn.CrossEntropyLoss(reduction="none")
 
+        logger.info(
+            "SeismicLoss initialized: weights={detection=%.3f, phase_pick=%.3f, magnitude=%.3f, risk=%.3f}, "
+            "pos_weight=%.3f, huber_delta=%.3f",
+            weights["detection"], weights["phase_pick"], weights["magnitude"], weights["risk"],
+            training_config["detection_pos_weight"], training_config["huber_delta"],
+        )
+
     def forward(
         self,
         outputs: dict[str, Tensor],
@@ -75,6 +85,9 @@ class SeismicLoss(nn.Module):
         """
         is_noise: Tensor = batch["is_noise"].squeeze()  # [B]
         n_seismic = (~is_noise).sum().clamp(min=1)  # avoid div-by-zero
+        n_noise = is_noise.sum().item()
+        if n_noise > 0:
+            logger.info("Noise masking applied: %d noise samples in batch", n_noise)
 
         losses: dict[str, Tensor] = {}
 
@@ -124,6 +137,12 @@ class SeismicLoss(nn.Module):
             + self.w_phase_pick * losses["phase_pick"]
             + self.w_magnitude * losses["magnitude"]
             + self.w_risk * losses["risk"]
+        )
+
+        logger.debug(
+            "Loss forward: detection=%.6f, phase_pick=%.6f, magnitude=%.6f, risk=%.6f, total=%.6f",
+            losses["detection"].item(), losses["phase_pick"].item(),
+            losses["magnitude"].item(), losses["risk"].item(), losses["total"].item(),
         )
 
         return losses

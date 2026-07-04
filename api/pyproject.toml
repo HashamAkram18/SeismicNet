@@ -1,0 +1,31 @@
+[project]
+name = "seismic-api"
+version = "0.1.0"
+description = "SeismicNet REST API"
+requires-python = ">=3.10"
+dependencies = [
+    "django>=4.2,<6.0",
+    "djangorestframework>=3.14,<4.0",
+    "djangorestframework-simplejwt>=5.3,<6.0",
+    "drf-yasg>=1.21,<2.0",
+    "celery>=5.3,<6.0",
+    "redis>=5.0,<6.0",
+    "gunicorn>=21.0,<22.0",
+    "torch>=2.1",
+    "numpy>=1.24",
+    "scipy>=1.11",
+    "obspy>=1.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-django",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["api_config*", "seismic_api*"]

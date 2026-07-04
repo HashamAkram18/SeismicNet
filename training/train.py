@@ -263,6 +263,11 @@ def main() -> None:
         print(f"Error: phase {args.phase} not found in training config", file=sys.stderr)
         sys.exit(1)
 
+    logger.info(
+        "Training start: phase=%d, seed=%d, active_tasks=%s, epochs=%d",
+        args.phase, training_config["seed"], phase_config["active_tasks"], phase_config["epochs"],
+    )
+
     # 3. Start MLflow run
     mlflow.set_tracking_uri(args.mlflow_uri)
     mlflow.set_experiment(args.experiment_name)
@@ -347,8 +352,12 @@ def main() -> None:
     patience_counter = 0
     global_step = start_epoch * steps_per_epoch
 
+    logger.info("Phase %d training loop starting at epoch %d", args.phase, start_epoch)
+
     try:
         for epoch in range(start_epoch, phase_config["epochs"]):
+            logger.info("Epoch %d/%d start", epoch, phase_config["epochs"] - 1)
+
             train_losses, global_step = train_one_epoch(
                 model, train_loader, loss_fn, optimizer, scheduler, scaler,
                 device, phase_config["active_tasks"],
@@ -363,6 +372,8 @@ def main() -> None:
             # Log val metrics
             mlflow.log_metrics({f"val/loss_{k}": v for k, v in val_losses.items()}, step=global_step)
             mlflow.log_metrics({f"val/{k}": v for k, v in val_metrics.items()}, step=global_step)
+
+            logger.info("Epoch %d complete: train_loss=%.6f, val_loss=%.6f", epoch, train_losses["total"], val_losses["total"])
 
             # Save checkpoint if improved
             current_metric = val_metrics.get("detection_f1", 0.0)
@@ -380,6 +391,7 @@ def main() -> None:
                     keep_top_k=training_config["keep_top_k_checkpoints"],
                     metric_key=training_config["early_stopping_metric"],
                 )
+                logger.info("Checkpoint saved at epoch %d (metric=%.4f)", epoch, current_metric)
             else:
                 patience_counter += 1
 
@@ -388,6 +400,8 @@ def main() -> None:
                 logger.info("Early stopping at epoch %d", epoch)
                 mlflow.log_param("early_stop_epoch", epoch)
                 break
+
+        logger.info("Phase %d training complete. Best metric: %.4f", args.phase, best_metric)
 
     finally:
         mlflow.end_run()

@@ -1,0 +1,30 @@
+line-length = 120
+target-version = "py310"
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific rules
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # do not perform function calls in argument defaults (common with FastAPI/pydantic patterns)
+    "E741",   # ambiguous variable name (common in math/ML code: l, O, I)
+]
+
+[lint.isort]
+known-first-party = ["seismic", "seismic_api", "api_config"]
+
+[lint.per-file-ignores]
+"tests/**/*.py" = ["S101"]  # allow assert in tests
+"api/tests/**/*.py" = ["S101"]
+
+[format]
+quote-style = "double"
+indent-style = "space"

@@ -18,7 +18,9 @@ services:
       - "6379:6379"
 
   web:
-    build: .
+    build:
+      context: ..
+      dockerfile: api/Dockerfile
     command: gunicorn api_config.wsgi:application --bind 0.0.0.0:8000 --workers 4
     volumes:
       - ./exported_models:/opt/seismic/exported_models:ro
@@ -38,7 +40,9 @@ services:
       - redis
 
   worker:
-    build: .
+    build:
+      context: ..
+      dockerfile: api/Dockerfile
     command: celery -A api_config worker -l info
     volumes:
       - ./exported_models:/opt/seismic/exported_models:ro

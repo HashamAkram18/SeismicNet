@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SeismicNet — Waveform Analysis Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; }
+        .header { background: linear-gradient(135deg, #1e293b, #334155); padding: 20px 32px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 24px; font-weight: 700; color: #38bdf8; }
+        .header .subtitle { color: #94a3b8; font-size: 14px; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+        .card { background: #1e293b; border-radius: 12px; border: 1px solid #334155; padding: 20px; }
+        .card h3 { color: #94a3b8; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+        .card .value { font-size: 28px; font-weight: 700; }
+        .card .label { color: #64748b; font-size: 13px; margin-top: 4px; }
+        .upload-zone { border: 2px dashed #475569; border-radius: 12px; padding: 48px; text-align: center; cursor: pointer; transition: all 0.2s; background: #1e293b; }
+        .upload-zone:hover { border-color: #38bdf8; background: #1e3a5f; }
+        .upload-zone.dragover { border-color: #38bdf8; background: #1e3a5f; }
+        .upload-zone h3 { color: #e2e8f0; font-size: 18px; margin-bottom: 8px; }
+        .upload-zone p { color: #64748b; }
+        .btn { padding: 10px 24px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .btn-primary { background: #38bdf8; color: #0f172a; }
+        .btn-primary:hover { background: #0ea5e9; }
+        .btn-primary:disabled { background: #475569; color: #94a3b8; cursor: not-allowed; }
+        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .status-pending { background: #854d0e; color: #fde047; }
+        .status-processing { background: #1e40af; color: #93c5fd; }
+        .status-complete { background: #166534; color: #86efac; }
+        .status-failed { background: #991b1b; color: #fca5a5; }
+        .result-section { margin-top: 24px; }
+        .result-section h2 { font-size: 18px; color: #38bdf8; margin-bottom: 16px; border-bottom: 1px solid #334155; padding-bottom: 8px; }
+        .waveform-chart { height: 200px; }
+        .detection-bar { height: 40px; border-radius: 8px; display: flex; align-items: center; padding: 0 16px; font-weight: 600; }
+        .detection-seismic { background: linear-gradient(90deg, #166534, #22c55e); }
+        .detection-noise { background: linear-gradient(90deg, #991b1b, #ef4444); }
+        .pick-marker { display: flex; gap: 16px; margin-top: 12px; }
+        .pick-item { flex: 1; background: #0f172a; border-radius: 8px; padding: 12px; text-align: center; }
+        .pick-item .time { font-size: 24px; font-weight: 700; color: #38bdf8; }
+        .pick-item .label { color: #64748b; font-size: 12px; margin-top: 4px; }
+        .risk-meter { display: flex; gap: 4px; margin-top: 12px; }
+        .risk-segment { flex: 1; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; transition: all 0.3s; }
+        .risk-low { background: #166534; color: #86efac; }
+        .risk-moderate { background: #854d0e; color: #fde047; }
+        .risk-high { background: #9a3412; color: #fdba74; }
+        .risk-critical { background: #991b1b; color: #fca5a5; }
+        .risk-active { transform: scaleY(1.3); box-shadow: 0 0 12px rgba(56, 189, 248, 0.5); }
+        .magnitude-display { text-align: center; padding: 20px; }
+        .magnitude-value { font-size: 48px; font-weight: 700; color: #f59e0b; }
+        .magnitude-scale { color: #94a3b8; font-size: 14px; }
+        .spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid #475569; border-top-color: #38bdf8; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .hidden { display: none; }
+        #auth-section { margin-bottom: 24px; }
+        .auth-form { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+        .auth-form .field { display: flex; flex-direction: column; gap: 4px; }
+        .auth-form label { color: #94a3b8; font-size: 12px; }
+        .auth-form input { padding: 8px 12px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-size: 14px; }
+        .toast { position: fixed; top: 20px; right: 20px; padding: 12px 24px; border-radius: 8px; color: white; font-weight: 600; z-index: 1000; animation: slideIn 0.3s ease; }
+        .toast-success { background: #166534; }
+        .toast-error { background: #991b1b; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>SeismicNet</h1>
+            <div class="subtitle">Multi-Task Seismic Waveform Analysis</div>
+        </div>
+        <div>
+            <a href="/swagger/" class="btn" style="background:#334155;color:#e2e8f0;text-decoration:none;margin-right:8px">API Docs</a>
+            <a href="/redoc/" class="btn" style="background:#334155;color:#e2e8f0;text-decoration:none">ReDoc</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Auth Section -->
+        <div id="auth-section" class="card" style="margin-bottom:24px">
+            <h3>Authentication</h3>
+            <div id="auth-logged-out">
+                <div class="auth-form">
+                    <div class="field"><label>Username</label><input type="text" id="auth-user" value="admin"></div>
+                    <div class="field"><label>Password</label><input type="password" id="auth-pass" value="admin"></div>
+                    <button class="btn btn-primary" onclick="doLogin()">Login</button>
+                    <button class="btn" style="background:#334155;color:#e2e8f0" onclick="doRegister()">Register</button>
+                </div>
+            </div>
+            <div id="auth-logged-in" class="hidden">
+                <span style="color:#86efac">Logged in as <strong id="auth-username"></strong></span>
+                <button class="btn" style="background:#334155;color:#e2e8f0;margin-left:12px" onclick="doLogout()">Logout</button>
+            </div>
+        </div>
+
+        <!-- Upload Zone -->
+        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+            <h3>Upload Seismic Waveform</h3>
+            <p>Drag & drop a MiniSEED file or click to browse</p>
+            <p style="margin-top:8px;color:#475569">Supports .mseed files up to 50MB</p>
+            <input type="file" id="file-input" accept=".mseed,.msd" style="display:none" onchange="handleFileSelect(event)">
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="hidden" style="text-align:center;padding:40px">
+            <div class="spinner" style="width:48px;height:48px;border-width:4px"></div>
+            <p style="margin-top:16px;color:#94a3b8">Processing waveform...</p>
+        </div>
+
+        <!-- Results -->
+        <div id="results" class="hidden">
+            <!-- Status Cards -->
+            <div class="grid-4">
+                <div class="card">
+                    <h3>Status</h3>
+                    <div id="result-status"></div>
+                </div>
+                <div class="card">
+                    <h3>Processing Time</h3>
+                    <div class="value" id="result-time">—</div>
+                    <div class="label">milliseconds</div>
+                </div>
+                <div class="card">
+                    <h3>Model Version</h3>
+                    <div class="value" id="result-model" style="font-size:20px">—</div>
+                </div>
+                <div class="card">
+                    <h3>Job ID</h3>
+                    <div class="value" id="result-jobid" style="font-size:14px;word-break:break-all">—</div>
+                </div>
+            </div>
+
+            <!-- Waveform Visualization -->
+            <div class="card result-section">
+                <h2>Waveform (3-Component)</h2>
+                <canvas id="waveform-chart" class="waveform-chart"></canvas>
+            </div>
+
+            <div class="grid">
+                <!-- Detection -->
+                <div class="card result-section">
+                    <h2>Detection</h2>
+                    <div id="detection-result"></div>
+                    <canvas id="detection-gauge" style="height:120px;margin-top:16px"></canvas>
+                </div>
+
+                <!-- Phase Picks -->
+                <div class="card result-section">
+                    <h2>Phase Picks</h2>
+                    <div id="phase-result"></div>
+                </div>
+
+                <!-- Magnitude -->
+                <div class="card result-section">
+                    <h2>Magnitude</h2>
+                    <div id="magnitude-result"></div>
+                </div>
+
+                <!-- Risk -->
+                <div class="card result-section">
+                    <h2>Structural Risk</h2>
+                    <div id="risk-result"></div>
+                </div>
+            </div>
+
+            <!-- Warnings -->
+            <div id="warnings-card" class="card hidden" style="margin-top:24px">
+                <h3>Warnings</h3>
+                <div id="warnings-list"></div>
+            </div>
+
+            <!-- Raw JSON -->
+            <div class="card" style="margin-top:24px">
+                <h3>Raw API Response</h3>
+                <pre id="raw-json" style="background:#0f172a;padding:16px;border-radius:8px;overflow-x:auto;font-size:13px;color:#94a3b8;max-height:400px;overflow-y:auto"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = null;
+        let waveformChart = null;
+        let detectionGauge = null;
+
+        // Toast notification
+        function showToast(msg, type = 'success') {
+            const t = document.createElement('div');
+            t.className = `toast toast-${type}`;
+            t.textContent = msg;
+            document.body.appendChild(t);
+            setTimeout(() => t.remove(), 3000);
+        }
+
+        // Auth
+        async function doLogin() {
+            const u = document.getElementById('auth-user').value;
+            const p = document.getElementById('auth-pass').value;
+            try {
+                const r = await fetch('/api/v1/auth/login/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: u, password: p})
+                });
+                const d = await r.json();
+                if (r.ok) {
+                    authToken = d.tokens.access;
+                    document.getElementById('auth-logged-out').classList.add('hidden');
+                    document.getElementById('auth-logged-in').classList.remove('hidden');
+                    document.getElementById('auth-username').textContent = d.user.username;
+                    showToast('Logged in successfully');
+                } else {
+                    showToast(d.detail || 'Login failed', 'error');
+                }
+            } catch (e) { showToast('Connection error', 'error'); }
+        }
+
+        async function doRegister() {
+            const u = document.getElementById('auth-user').value;
+            const p = document.getElementById('auth-pass').value;
+            try {
+                const r = await fetch('/api/v1/auth/register/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username: u, email: `${u}@seismicnet.local`, password: p})
+                });
+                const d = await r.json();
+                if (r.ok) {
+                    authToken = d.tokens.access;
+                    document.getElementById('auth-logged-out').classList.add('hidden');
+                    document.getElementById('auth-logged-in').classList.remove('hidden');
+                    document.getElementById('auth-username').textContent = d.user.username;
+                    showToast('Account created');
+                } else {
+                    showToast(d.detail || 'Registration failed', 'error');
+                }
+            } catch (e) { showToast('Connection error', 'error'); }
+        }
+
+        function doLogout() {
+            authToken = null;
+            document.getElementById('auth-logged-out').classList.remove('hidden');
+            document.getElementById('auth-logged-in').classList.add('hidden');
+            showToast('Logged out');
+        }
+
+        // File handling
+        const dropZone = document.getElementById('upload-zone');
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length) uploadFile(e.dataTransfer.files[0]);
+        });
+
+        function handleFileSelect(e) {
+            if (e.target.files.length) uploadFile(e.target.files[0]);
+        }
+
+        async function uploadFile(file) {
+            document.getElementById('upload-zone').classList.add('hidden');
+            document.getElementById('results').classList.add('hidden');
+            document.getElementById('loading').classList.remove('hidden');
+
+            const formData = new FormData();
+            formData.append('mseed_file', file);
+
+            const headers = {};
+            if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+            try {
+                const r = await fetch('/api/v1/seismic/analyze/', {
+                    method: 'POST',
+                    headers,
+                    body: formData
+                });
+                const d = await r.json();
+
+                if (r.status === 202) {
+                    pollJob(d.job_id);
+                } else {
+                    showToast(d.detail || 'Upload failed', 'error');
+                    document.getElementById('loading').classList.add('hidden');
+                    document.getElementById('upload-zone').classList.remove('hidden');
+                }
+            } catch (e) {
+                showToast('Connection error', 'error');
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('upload-zone').classList.remove('hidden');
+            }
+        }
+
+        async function pollJob(jobId) {
+            const headers = {};
+            if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+            try {
+                const r = await fetch(`/api/v1/seismic/jobs/${jobId}/`, { headers });
+                const d = await r.json();
+
+                if (d.status === 'complete') {
+                    displayResults(d);
+                } else if (d.status === 'failed') {
+                    showToast(d.error_detail || 'Analysis failed', 'error');
+                    document.getElementById('loading').classList.add('hidden');
+                    document.getElementById('upload-zone').classList.remove('hidden');
+                } else {
+                    setTimeout(() => pollJob(jobId), 500);
+                }
+            } catch (e) {
+                showToast('Polling error', 'error');
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('upload-zone').classList.remove('hidden');
+            }
+        }
+
+        function displayResults(data) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('results').classList.remove('hidden');
+
+            // Status
+            const statusEl = document.getElementById('result-status');
+            statusEl.innerHTML = `<span class="status-badge status-${data.status}">${data.status.toUpperCase()}</span>`;
+
+            // Meta
+            document.getElementById('result-time').textContent = data.processing_time_ms || '—';
+            document.getElementById('result-model').textContent = data.model_version || '—';
+            document.getElementById('result-jobid').textContent = data.job_id;
+
+            const r = data.results;
+            if (!r) return;
+
+            // Detection
+            const det = r.detection;
+            const detEl = document.getElementById('detection-result');
+            detEl.innerHTML = `
+                <div class="detection-bar ${det.is_seismic ? 'detection-seismic' : 'detection-noise'}">
+                    ${det.is_seismic ? 'SEISMIC EVENT' : 'NOISE / NO EVENT'}
+                </div>
+                <div style="margin-top:12px;display:flex;gap:16px">
+                    <div><span style="color:#64748b">Confidence:</span> <strong>${(det.confidence * 100).toFixed(1)}%</strong></div>
+                    <div><span style="color:#64748b">Threshold:</span> <strong>${det.threshold_used}</strong></div>
+                </div>
+            `;
+
+            // Detection gauge
+            renderDetectionGauge(det.confidence, det.threshold_used);
+
+            // Phase Picks
+            const pp = r.phase_picks;
+            document.getElementById('phase-result').innerHTML = `
+                <div class="pick-marker">
+                    <div class="pick-item">
+                        <div class="time">${pp.p_arrival_time_s.toFixed(2)}s</div>
+                        <div class="label">P-Wave Arrival</div>
+                        <div style="color:#64748b;font-size:11px;margin-top:4px">Sample ${pp.p_arrival_sample}</div>
+                    </div>
+                    <div class="pick-item">
+                        <div class="time">${pp.s_arrival_time_s.toFixed(2)}s</div>
+                        <div class="label">S-Wave Arrival</div>
+                        <div style="color:#64748b;font-size:11px;margin-top:4px">Sample ${pp.s_arrival_sample}</div>
+                    </div>
+                    <div class="pick-item">
+                        <div class="time" style="color:#f59e0b">${pp.sp_interval_s.toFixed(2)}s</div>
+                        <div class="label">S-P Interval</div>
+                        <div style="color:#64748b;font-size:11px;margin-top:4px">Distance proxy</div>
+                    </div>
+                </div>
+            `;
+
+            // Magnitude
+            const mag = r.magnitude;
+            document.getElementById('magnitude-result').innerHTML = `
+                <div class="magnitude-display">
+                    <div class="magnitude-value">Ml ${mag.ml.toFixed(2)}</div>
+                    <div class="magnitude-scale">Local Magnitude (log₁₀ scale: ${mag.ml_log_raw.toFixed(4)})</div>
+                </div>
+            `;
+
+            // Risk
+            const risk = r.risk;
+            const riskClasses = ['low', 'moderate', 'high', 'critical'];
+            let riskHTML = '<div class="risk-meter">';
+            riskClasses.forEach(cls => {
+                const isActive = risk.level === cls;
+                const prob = (risk.probabilities[cls] * 100).toFixed(1);
+                riskHTML += `<div class="risk-segment risk-${cls} ${isActive ? 'risk-active' : ''}">${cls.charAt(0).toUpperCase()}<br>${prob}%</div>`;
+            });
+            riskHTML += '</div>';
+            riskHTML += `<div style="text-align:center;margin-top:12px;font-size:18px;font-weight:700;color:${risk.level === 'critical' ? '#fca5a5' : risk.level === 'high' ? '#fdba74' : risk.level === 'moderate' ? '#fde047' : '#86efac'}">${risk.level.toUpperCase()}</div>`;
+            document.getElementById('risk-result').innerHTML = riskHTML;
+
+            // Warnings
+            if (data.warnings && data.warnings.length) {
+                document.getElementById('warnings-card').classList.remove('hidden');
+                document.getElementById('warnings-list').innerHTML = data.warnings.map(w => `<div style="color:#fde047;margin-top:4px">⚠ ${w}</div>`).join('');
+            }
+
+            // Raw JSON
+            document.getElementById('raw-json').textContent = JSON.stringify(data, null, 2);
+
+            // Generate synthetic waveform for visualization
+            renderWaveformChart(pp);
+        }
+
+        function renderDetectionGauge(confidence, threshold) {
+            const ctx = document.getElementById('detection-gauge').getContext('2d');
+            if (detectionGauge) detectionGauge.destroy();
+            detectionGauge = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Confidence'],
+                    datasets: [
+                        { label: 'Seismic', data: [confidence], backgroundColor: '#22c55e', borderRadius: 6 },
+                        { label: 'Remaining', data: [1 - confidence], backgroundColor: '#334155', borderRadius: 6 }
+                    ]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { x: { stacked: true, max: 1, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }, y: { stacked: true, display: false } },
+                    plugins: {
+                        legend: { display: false },
+                        annotation: { annotations: { threshold: { type: 'line', xMin: threshold, xMax: threshold, borderColor: '#f59e0b', borderWidth: 2, borderDash: [5, 5] } } }
+                    }
+                }
+            });
+        }
+
+        function renderWaveformChart(picks) {
+            const ctx = document.getElementById('waveform-chart').getContext('2d');
+            if (waveformChart) waveformChart.destroy();
+
+            // Generate synthetic 3-component waveform
+            const n = 3000;
+            const t = Array.from({length: n}, (_, i) => i / 100);
+            const pIdx = picks.p_arrival_sample;
+            const sIdx = picks.s_arrival_sample;
+
+            function genWaveform(offset, amp) {
+                return t.map((ti, i) => {
+                    let v = (Math.random() - 0.5) * 0.1;
+                    // P-wave arrival
+                    if (i >= pIdx) {
+                        const dt = (i - pIdx) / 100;
+                        v += amp * Math.sin(2 * Math.PI * 5 * dt + offset) * Math.exp(-dt * 2);
+                    }
+                    // S-wave arrival (stronger)
+                    if (i >= sIdx) {
+                        const dt = (i - sIdx) / 100;
+                        v += amp * 2 * Math.sin(2 * Math.PI * 3 * dt + offset) * Math.exp(-dt * 1.5);
+                    }
+                    return v;
+                });
+            }
+
+            waveformChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: t.map(v => v.toFixed(1)),
+                    datasets: [
+                        { label: 'Z (Vertical)', data: genWaveform(0, 0.8), borderColor: '#38bdf8', borderWidth: 1, pointRadius: 0, tension: 0.1 },
+                        { label: 'N (North)', data: genWaveform(2, 0.6), borderColor: '#22c55e', borderWidth: 1, pointRadius: 0, tension: 0.1 },
+                        { label: 'E (East)', data: genWaveform(4, 0.5), borderColor: '#f59e0b', borderWidth: 1, pointRadius: 0, tension: 0.1 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { intersect: false, mode: 'index' },
+                    scales: {
+                        x: { title: { display: true, text: 'Time (s)', color: '#94a3b8' }, grid: { color: '#1e293b' }, ticks: { color: '#64748b', maxTicksLimit: 20 } },
+                        y: { title: { display: true, text: 'Amplitude', color: '#94a3b8' }, grid: { color: '#1e293b' }, ticks: { color: '#64748b' } }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#94a3b8' } },
+                        annotation: {
+                            annotations: {
+                                pLine: { type: 'line', xMin: (pIdx / 100).toFixed(1), xMax: (pIdx / 100).toFixed(1), borderColor: '#38bdf8', borderWidth: 2, borderDash: [5, 5], label: { display: true, content: 'P', color: '#38bdf8', position: 'start' } },
+                                sLine: { type: 'line', xMin: (sIdx / 100).toFixed(1), xMax: (sIdx / 100).toFixed(1), borderColor: '#ef4444', borderWidth: 2, borderDash: [5, 5], label: { display: true, content: 'S', color: '#ef4444', position: 'start' } }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

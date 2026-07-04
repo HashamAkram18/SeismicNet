@@ -16,6 +16,7 @@ Routing rules (non-negotiable):
 """
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List, Optional
 
 import torch
@@ -24,6 +25,8 @@ from torch import Tensor
 
 from seismic.model.encoder import SeismicEncoder
 from seismic.model.heads import DetectionHead, MagnitudeHead, PhasePickHead, RiskHead
+
+logger = logging.getLogger(__name__)
 
 
 class SeismicNet(nn.Module):

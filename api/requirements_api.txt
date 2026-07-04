@@ -1,6 +1,7 @@
 # API server dependencies
 django>=4.2,<5.0
 djangorestframework>=3.14,<4.0
+djangorestframework-simplejwt>=5.3,<6.0
 celery>=5.3,<6.0
 redis>=5.0,<6.0
 gunicorn>=21.0,<22.0

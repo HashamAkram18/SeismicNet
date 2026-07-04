@@ -239,8 +239,11 @@ def preprocess_waveform(
     Raises:
         ValueError: If sampling_rate does not match config sampling_rate_hz.
     """
+    logger.info("Preprocessing entry: shape=%s, sampling_rate=%d Hz", waveform.shape, sampling_rate)
+
     # Step 1: Validate sampling rate
     validate_sampling_rate(sampling_rate, config["sampling_rate_hz"])
+    logger.info("Step 1/7: validate_sampling_rate passed (%d Hz)", sampling_rate)
 
     # Step 2: Sub-window extraction
     trace = extract_subwindow(
@@ -249,12 +252,15 @@ def preprocess_waveform(
         p_arrival_target=config["p_arrival_sample_index"],
         window_length=config["window_length_samples"],
     )
+    logger.info("Step 2/7: extract_subwindow complete, shape=%s", trace.shape)
 
     # Step 3: Detrend
     trace = detrend_trace(trace, detrend_type=config["detrend_type"])
+    logger.info("Step 3/7: detrend complete")
 
     # Step 4: Taper
     trace = cosine_taper(trace, taper_fraction=config["taper_fraction"])
+    logger.info("Step 4/7: cosine_taper complete")
 
     # Step 5: Bandpass filter
     trace = bandpass_filter(
@@ -264,11 +270,15 @@ def preprocess_waveform(
         order=config["bandpass_order"],
         sampling_rate_hz=config["sampling_rate_hz"],
     )
+    logger.info("Step 5/7: bandpass_filter complete (%s-%s Hz)", config["bandpass_low_hz"], config["bandpass_high_hz"])
 
     # Step 6: Extract PGV scalar (before normalization)
     pgv = extract_pgv(trace) if extract_pgv_flag else np.float32(0.0)
+    logger.info("Step 6/7: extract_pgv complete, pgv=%.6f", pgv)
 
     # Step 7: Per-trace z-score normalization
     trace = normalize(trace)
+    logger.info("Step 7/7: normalize complete")
 
+    logger.info("Preprocessing done: output shape=%s", trace.shape)
     return {"waveform": trace.astype(np.float32), "pgv": np.float32(pgv)}

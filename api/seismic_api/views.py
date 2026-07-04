@@ -69,6 +69,8 @@ class AnalyzeView(APIView):
 
     def post(self, request: Request) -> Response:
         """Accept mseed upload and return job_id."""
+        logger.info("Analyze request received: filename=%s, size=%s", request.FILES.get("mseed_file", "N/A"), getattr(request.FILES.get("mseed_file"), "size", "N/A"))
+
         # Validate mseed file
         mseed_file = request.FILES.get("mseed_file")
         if mseed_file is None:
@@ -79,6 +81,7 @@ class AnalyzeView(APIView):
 
         error = validate_mseed_file(mseed_file.name, mseed_file.size)
         if error is not None:
+            logger.warning("Mseed validation failed: %s (file=%s)", error, mseed_file.name)
             return Response(
                 {"error": error, "detail": f"File validation failed: {error}", "job_id": None},
                 status=status.HTTP_400_BAD_REQUEST
@@ -149,6 +152,7 @@ class AnalyzeView(APIView):
             preprocessing_config_version=engine.preprocessing_config_version,
         )
         job.save()
+        logger.info("Job created: %s (file=%s)", job.job_id, mseed_file.name)
 
         # Save waveform to temp file for Celery task
         tmp_dir = Path(tempfile.gettempdir()) / "seismic_jobs"
@@ -168,6 +172,7 @@ class AnalyzeView(APIView):
         # Dispatch Celery task
         run_seismic_analysis.delay(str(job.job_id))
 
+        logger.info("Job dispatched: %s", job.job_id)
         return Response(
             {
                 "job_id": str(job.job_id),

@@ -104,6 +104,10 @@ class SeismicDataset(Dataset):
 
         # Load event IDs from split file
         self.event_ids = load_event_ids(Path(split_file))
+        logger.info("Loaded %d event IDs from split file: %s", len(self.event_ids), split_file)
+
+        if not self.event_ids:
+            logger.warning("Split file is empty: %s", split_file)
 
         # Load metadata CSV and index by event ID
         self.metadata = pd.read_csv(metadata_csv, index_col=0)
