@@ -1,0 +1,58 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: seismic_api
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  web:
+    build: .
+    command: gunicorn api_config.wsgi:application --bind 0.0.0.0:8000 --workers 4
+    volumes:
+      - ./exported_models:/opt/seismic/exported_models:ro
+    environment:
+      - DJANGO_SETTINGS_MODULE=api_config.settings.production
+      - DB_HOST=db
+      - DB_NAME=seismic_api
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - SEISMIC_ARTIFACT_DIR=/opt/seismic/exported_models/seismic_v1
+      - ALLOWED_HOSTS=*
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build: .
+    command: celery -A api_config worker -l info
+    volumes:
+      - ./exported_models:/opt/seismic/exported_models:ro
+    environment:
+      - DJANGO_SETTINGS_MODULE=api_config.settings.production
+      - DB_HOST=db
+      - DB_NAME=seismic_api
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - SEISMIC_ARTIFACT_DIR=/opt/seismic/exported_models/seismic_v1
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  postgres_data:
