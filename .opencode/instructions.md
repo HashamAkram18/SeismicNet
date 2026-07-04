@@ -2,63 +2,25 @@
 
 ## Current Phase
 
-**Step 8 of 19 — Django REST API Layer + Auth + Swagger + Dashboard Complete**
+**Step 8 of 19 — Django REST API Layer + Auth + Swagger + Dashboard + CI/CD + Logging Complete**
 
 ## What Was Completed This Session
 
-1. Wrote `docs/05_api_schema.md` — full API schema:
-   - POST /api/v1/seismic/analyze/ (async, returns 202 + job_id)
-   - GET /api/v1/seismic/jobs/{job_id}/ (status + result)
-   - GET /api/v1/seismic/jobs/{job_id}/result/ (result only)
-   - GET /api/v1/health/ (model load status, 200/503)
-   - Full result payload schema with all 4 task outputs
-   - Error response schema with error codes
+1. Auth system (7 endpoints) — Register, login, forgot/reset password, request/verify OTP, profile
+2. Swagger/ReDoc/JSON schema — drf-yasg with Bearer token auth
+3. Dashboard — Chart.js dark-theme waveform visualization at /
+4. CI/CD — GitHub Actions: lint (ruff), test-ml, test-api, build Docker, deploy placeholder
+5. Structured logging — all ML modules + API views/tasks, console + file handler
+6. README — architecture diagram, setup guide, API reference, invariants
+7. Dockerfile + .dockerignore — python:3.12-slim, gunicorn
+8. ruff.toml — 120 char, py310, ML-friendly ignores
+9. Dummy MiniSEED generator — scripts/create_dummy_mseed.py
+10. Fixed TorchScript compatibility — removed logger calls from SeismicNet.forward()
 
-2. Created Django project scaffold under `api/`:
-   - api_config/settings/{base,local,production}.py
-   - api_config/urls.py, wsgi.py, celery.py
-   - seismic_api/ app with models, views, tasks, inference, validators, serializers
+## Git Remote
 
-3. Implemented `seismic_api/models.py` — SeismicJob:
-   - UUID primary key, status choices, JSONField for results
-   - submitted_at, completed_at, processing_time_ms, error_detail
-
-4. Implemented `seismic_api/inference.py` — SeismicInferenceEngine:
-   - Singleton pattern with threading.Lock
-   - Loads TorchScript model via torch.jit.load()
-   - Validates preprocessing_config schema_version on load
-   - predict() calls seismic.preprocessing.preprocess_waveform() (Invariant 1)
-   - Post-processes all 4 heads: sigmoid, denormalize, back-transform, softmax
-   - load_from_mseed() parses MiniSEED via obspy
-   - get_engine() / reset_engine() for singleton management
-
-5. Implemented views, serializers, tasks, validators:
-   - AnalyzeView: multipart upload, validation, Celery task dispatch
-   - JobStatusView: full job status with result
-   - JobResultView: result-only endpoint
-   - HealthView: model load check
-   - run_seismic_analysis Celery task: processes job asynchronously
-   - CELERY_TASK_ALWAYS_EAGER=True in local settings (no Redis needed)
-
-6. Implemented auth endpoints (`seismic_api/auth_views.py`, `auth_urls.py`):
-   - RegisterView (POST /api/v1/auth/register/) — creates user + JWT tokens
-   - LoginView (POST /api/v1/auth/login/) — validates credentials + JWT tokens
-   - ForgotPasswordView (POST /api/v1/auth/forgot-password/) — always returns success
-   - ResetPasswordView (POST /api/v1/auth/reset-password/) — token-based reset
-   - RequestOTPView (POST /api/v1/auth/request-otp/) — sends OTP code
-   - VerifyOTPView (POST /api/v1/auth/verify-otp/) — validates OTP code
-   - ProfileView (GET /api/v1/auth/profile/) — returns user data (JWT required)
-
-7. Added Swagger/ReDoc/JSON schema documentation:
-   - /swagger/ — Swagger UI
-   - /redoc/ — ReDoc UI
-   - /swagger.json — raw JSON schema
-   - Bearer token auth configured for all endpoints
-
-8. Added waveform visualization dashboard:
-   - `api/templates/dashboard.html` — Chart.js dark-theme frontend
-   - `seismic_api/dashboard_view.py` — Django view at / root
-   - 3-component waveform display with event metadata
+- origin: https://github.com/HashamAkram18/SeismicNet.git
+- branch: main (latest: f594f92)
 
 ## Graphify State
 
@@ -67,7 +29,7 @@
 ## Next Action
 
 Steps 9-19 of the 19-step implementation order. GPU training is running — wait for results.
-Dashboard is wired at `/`, auth is live, Swagger at `/swagger/`.
+CI/CD pipeline will run on first push to main. Dashboard at `/`, auth at `/api/v1/auth/`, Swagger at `/swagger/`.
 
 ## Open Issues
 
