@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0.0",
+  "seed": 42,
+  "batch_size": 256,
+  "num_workers": 8,
+  "pin_memory": true,
+  "phases": [
+    {
+      "phase_id": 1,
+      "epochs": 20,
+      "active_tasks": ["detection", "phase_pick"],
+      "loss_weights": {
+        "detection": 1.0,
+        "phase_pick": 2.0,
+        "magnitude": 0.0,
+        "risk": 0.0
+      },
+      "optimizer": {
+        "type": "AdamW",
+        "lr": 3e-4,
+        "weight_decay": 1e-4
+      },
+      "scheduler": {
+        "type": "cosine_with_warmup",
+        "warmup_steps": 500,
+        "min_lr": 1e-6
+      }
+    },
+    {
+      "phase_id": 2,
+      "epochs": 20,
+      "active_tasks": ["detection", "phase_pick", "magnitude"],
+      "loss_weights": {
+        "detection": 1.0,
+        "phase_pick": 2.0,
+        "magnitude": 0.3,
+        "risk": 0.0
+      },
+      "optimizer": {
+        "type": "AdamW",
+        "lr": 3e-4,
+        "weight_decay": 1e-4
+      },
+      "scheduler": {
+        "type": "cosine_with_warmup",
+        "warmup_steps": 200,
+        "min_lr": 1e-6
+      }
+    },
+    {
+      "phase_id": 3,
+      "epochs": 40,
+      "active_tasks": ["detection", "phase_pick", "magnitude", "risk"],
+      "loss_weights": {
+        "detection": 1.0,
+        "phase_pick": 1.5,
+        "magnitude": 0.8,
+        "risk": 0.5
+      },
+      "optimizer": {
+        "type": "AdamW",
+        "lr": 1e-4,
+        "weight_decay": 1e-4
+      },
+      "scheduler": {
+        "type": "cosine_with_warmup",
+        "warmup_steps": 200,
+        "min_lr": 1e-6
+      }
+    }
+  ],
+  "gradient_clip_norm": 1.0,
+  "early_stopping_patience": 10,
+  "early_stopping_metric": "detection_f1",
+  "mixed_precision": true,
+  "detection_pos_weight": 10.0,
+  "huber_delta": 0.02,
+  "keep_top_k_checkpoints": 3
+}

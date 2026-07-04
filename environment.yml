@@ -1,0 +1,20 @@
+name: seismic_risk
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pytorch>=2.1
+  - pytorch-cuda=12.1
+  - torchaudio>=2.1
+  - numpy>=1.24
+  - scipy>=1.11
+  - h5py>=3.9
+  - obspy>=1.4
+  - mlflow>=2.9
+  - tqdm
+  - pytest
+  - pip
+  - pip:
+    - torchinfo

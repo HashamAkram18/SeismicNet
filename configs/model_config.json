@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0.0",
+  "stem_channels": 64,
+  "stage_channels": [64, 128, 256, 256],
+  "stage_blocks": [2, 2, 2, 2],
+  "stage_kernels": [7, 7, 5, 5],
+  "transformer_d_model": 256,
+  "transformer_nhead": 8,
+  "transformer_layers": 2,
+  "transformer_ffn_dim": 512,
+  "transformer_dropout": 0.1,
+  "head_hidden_dim": 64,
+  "head_dropout": 0.1,
+  "pooling_dropout": 0.2,
+  "detection_threshold": 0.5,
+  "risk_classes": ["low", "moderate", "high", "critical"]
+}

@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0.0",
+  "sampling_rate_hz": 100,
+  "window_length_samples": 3000,
+  "p_arrival_sample_index": 1000,
+  "bandpass_low_hz": 1.0,
+  "bandpass_high_hz": 45.0,
+  "bandpass_order": 4,
+  "bandpass_type": "butter",
+  "taper_fraction": 0.05,
+  "taper_type": "cosine",
+  "normalization_strategy": "per_trace_zscore",
+  "pgv_extraction": "peak_abs_velocity_before_norm",
+  "detrend_type": "linear",
+  "channels": ["E", "N", "Z"],
+  "label_schema_version": "1.0.0"
+}
