@@ -2,11 +2,17 @@
 
 Every torch.save() for a checkpoint must also write preprocessing_config.json
 into the same checkpoint directory (Invariant 2).
+
+load_checkpoint() must validate that preprocessing_config_version in the
+checkpoint matches the current preprocessing_config.json. Raise hard error
+on mismatch.
+
 Defined in docs/04_training_and_export.md § utils.
 """
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -30,10 +36,14 @@ def save_checkpoint(
 ) -> Path:
     """Save model checkpoint and preprocessing config.
 
+    Saves to checkpoints/run_{mlflow_run_id}/epoch_{epoch:03d}.pt.
+    Copies preprocessing_config.json into the same directory.
+    Keeps only the top-K checkpoints by metric_key.
+
     Args:
         model: Model with state_dict.
         optimizer: Optimizer with state_dict.
-        scheduler: LR scheduler with state_dict.
+        scheduler: LR scheduler with state_dict (or None).
         scaler: GradScaler with state_dict (or None).
         epoch: Current epoch number.
         val_metrics: Validation metrics dict.
@@ -47,8 +57,57 @@ def save_checkpoint(
     Returns:
         Path to the saved checkpoint.
     """
-    # TODO: implement
-    raise NotImplementedError
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+    ckpt = {
+        "epoch": epoch,
+        "model_state_dict": model.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict(),
+        "scheduler_state_dict": scheduler.state_dict() if scheduler is not None else None,
+        "scaler_state_dict": scaler.state_dict() if scaler is not None else None,
+        "val_metrics": val_metrics,
+        "model_config_version": config_versions["model"],
+        "preprocessing_config_version": config_versions["preprocessing"],
+        "training_config_version": config_versions["training"],
+        "mlflow_run_id": mlflow_run_id,
+        "phase_id": phase_id,
+    }
+
+    ckpt_path = checkpoint_dir / f"epoch_{epoch:03d}.pt"
+    torch.save(ckpt, ckpt_path)
+
+    # Copy preprocessing_config.json alongside checkpoint (Invariant 2)
+    src_config = Path("configs/preprocessing_config.json")
+    dst_config = checkpoint_dir / "preprocessing_config.json"
+    if src_config.exists():
+        shutil.copy2(src_config, dst_config)
+
+    # Keep only top-K checkpoints
+    _prune_checkpoints(checkpoint_dir, keep_top_k, metric_key)
+
+    return ckpt_path
+
+
+def _prune_checkpoints(checkpoint_dir: Path, keep_top_k: int, metric_key: str) -> None:
+    """Remove old checkpoints, keeping only top-K by metric_key."""
+    ckpts = sorted(checkpoint_dir.glob("epoch_*.pt"))
+    if len(ckpts) <= keep_top_k:
+        return
+
+    # Load metrics for each checkpoint
+    scored = []
+    for p in ckpts:
+        try:
+            data = torch.load(p, map_location="cpu", weights_only=False)
+            score = data.get("val_metrics", {}).get(metric_key, 0.0)
+            scored.append((p, score))
+        except Exception:
+            scored.append((p, 0.0))
+
+    # Sort descending by score, keep top-K
+    scored.sort(key=lambda x: x[1], reverse=True)
+    for p, _ in scored[keep_top_k:]:
+        p.unlink(missing_ok=True)
 
 
 def load_checkpoint(
@@ -64,13 +123,33 @@ def load_checkpoint(
         preprocessing_config: Current preprocessing config for version validation.
 
     Returns:
-        Dict with optimizer_state_dict, scheduler_state_dict, epoch, val_metrics.
+        Dict with keys: model_state_dict, optimizer_state_dict, scheduler_state_dict,
+        scaler_state_dict, epoch, val_metrics, phase_id, mlflow_run_id.
 
     Raises:
         ValueError: If preprocessing_config_version in checkpoint does not match config.
     """
-    # TODO: implement
-    raise NotImplementedError
+    ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+
+    # Validate preprocessing config version (Invariant 2)
+    ckpt_version = ckpt.get("preprocessing_config_version")
+    current_version = preprocessing_config.get("schema_version")
+    if ckpt_version != current_version:
+        raise ValueError(
+            f"Preprocessing config version mismatch: checkpoint has "
+            f"'{ckpt_version}', current config has '{current_version}'"
+        )
+
+    return {
+        "model_state_dict": ckpt["model_state_dict"],
+        "optimizer_state_dict": ckpt["optimizer_state_dict"],
+        "scheduler_state_dict": ckpt.get("scheduler_state_dict"),
+        "scaler_state_dict": ckpt.get("scaler_state_dict"),
+        "epoch": ckpt["epoch"],
+        "val_metrics": ckpt.get("val_metrics", {}),
+        "phase_id": ckpt.get("phase_id"),
+        "mlflow_run_id": ckpt.get("mlflow_run_id"),
+    }
 
 
 def load_config(config_path: Path) -> dict[str, Any]:
@@ -84,10 +163,20 @@ def load_config(config_path: Path) -> dict[str, Any]:
 
     Raises:
         FileNotFoundError: If config file does not exist.
-        ValueError: If JSON is malformed or missing required fields.
+        ValueError: If JSON is malformed or missing schema_version field.
     """
-    # TODO: implement
-    raise NotImplementedError
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+
+    with open(config_path) as f:
+        config = json.load(f)
+
+    if "schema_version" not in config:
+        raise ValueError(
+            f"Config file {config_path.name} is missing required 'schema_version' field"
+        )
+
+    return config
 
 
 def validate_config_version(config: dict[str, Any], expected_version: str = "1.0.0") -> None:
@@ -100,4 +189,8 @@ def validate_config_version(config: dict[str, Any], expected_version: str = "1.0
     Raises:
         ValueError: If schema_version does not match.
     """
-    # TODO: implement
+    actual = config.get("schema_version")
+    if actual != expected_version:
+        raise ValueError(
+            f"Config schema_version mismatch: expected '{expected_version}', got '{actual}'"
+        )
